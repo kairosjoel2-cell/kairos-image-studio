@@ -4,17 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#0a0a0b" />
-    <meta name="description" content="KAIROS Image Studio — professional, offline-first graphic design and advanced image editing in the browser." />
+    <meta name="description" content="KAIROSWEB — upload any flyer and turn it into a fully editable design. Edit text, images, colors, fonts, and layout; export PNG, JPG, and PDF." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>KAIROS Image Studio</title>
+    <title>KAIROSWEB — Flyer Studio</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" href="./favicon.svg" />
     <style>
       /* ============================================================
-         KAIROS DESIGN SYSTEM — professional black & red
+         KAIROSWEB DESIGN SYSTEM — professional black & red
          ============================================================ */
       :root {
         --k-bg: #0a0a0b;
@@ -78,8 +78,8 @@
       }
       #kairos-boot.hidden { opacity: 0; pointer-events: none; }
       .kairos-boot-logo {
-        font-size: 40px; font-weight: 800; letter-spacing: 0.32em; text-transform: uppercase;
-        color: var(--k-text); text-indent: 0.32em;
+        font-size: 34px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase;
+        color: var(--k-text); text-indent: 0.22em;
       }
       .kairos-boot-logo span { color: var(--k-red); }
       .kairos-boot-sub { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--k-text-dim); }
@@ -98,8 +98,8 @@
   <body>
     <div id="root"></div>
     <div id="kairos-boot" aria-hidden="true">
-      <div class="kairos-boot-logo">KAIROS<span>.</span></div>
-      <div class="kairos-boot-sub">Image Studio</div>
+      <div class="kairos-boot-logo">KAIROSWEB<span>.</span></div>
+      <div class="kairos-boot-sub">Flyer Studio</div>
       <div class="kairos-boot-bar"></div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
