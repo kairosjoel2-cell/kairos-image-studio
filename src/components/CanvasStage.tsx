@@ -6,9 +6,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../state/editorStore';
 import { renderDocumentToCanvas, hitTestLayer } from '../lib/renderer';
 import type { Layer } from '../types';
-import { rotatePoint, clamp, degToRad, uid } from '../utils/helpers';
+import { rotatePoint, clamp, degToRad } from '../utils/helpers';
 
-type HandleId = 'tl' | 'tr' | 'br' | 'bl' | 't' | 'b' | 'l' | 'r';
+type HandleId = 'tl' | 'tr' | 'br' | 'bl';
 
 interface DragState {
   mode: 'move' | 'resize' | 'rotate';
@@ -125,19 +125,18 @@ export default function CanvasStage(): JSX.Element {
         ctx.stroke();
       }
 
-      // Rotation handle above top edge midpoint.
+      // Rotation handle above the top edge midpoint.
       const midTop = {
         x: (corners[0].x + corners[1].x) / 2,
         y: (corners[0].y + corners[1].y) / 2,
       };
-      const center = { x: layer.x + layer.width / 2, y: layer.y + layer.height / 2 };
-      const dir = rotatePoint({ x: midTop.x, y: midTop.y - ROTATE_HANDLE_OFFSET / zoom }, center, 0);
+      const rotHandle = { x: midTop.x, y: midTop.y - ROTATE_HANDLE_OFFSET / zoom };
       ctx.beginPath();
       ctx.moveTo(midTop.x, midTop.y);
-      ctx.lineTo(dir.x, dir.y);
+      ctx.lineTo(rotHandle.x, rotHandle.y);
       ctx.stroke();
       ctx.beginPath();
-      ctx.arc(dir.x, dir.y, 5 / zoom, 0, Math.PI * 2);
+      ctx.arc(rotHandle.x, rotHandle.y, 5 / zoom, 0, Math.PI * 2);
       ctx.fillStyle = '#e5484d';
       ctx.fill();
     }
@@ -163,26 +162,20 @@ export default function CanvasStage(): JSX.Element {
       const layer = doc.layers.find((l) => l.id === selection[0]);
       if (!layer) return null;
       const corners = layerCorners(layer);
-      const center = { x: layer.x + layer.width / 2, y: layer.y + layer.height / 2 };
       const midTop = {
         x: (corners[0].x + corners[1].x) / 2,
         y: (corners[0].y + corners[1].y) / 2,
       };
-      const rotHandle = rotatePoint(
-        { x: midTop.x, y: midTop.y - ROTATE_HANDLE_OFFSET / zoom },
-        center,
-        0,
-      );
-      const distRot = Math.hypot(px - rotHandle.x, py - rotHandle.y);
-      if (distRot * zoom <= HANDLE_HIT) return { kind: 'rotate' };
+      const rotHandle = { x: midTop.x, y: midTop.y - ROTATE_HANDLE_OFFSET / zoom };
+      if (Math.hypot(px - rotHandle.x, py - rotHandle.y) * zoom <= HANDLE_HIT) return { kind: 'rotate' };
 
-      const signs: { handle: HandleId; sign: { x: number; y: number }; corner: number }[] = [
-        { handle: 'tl', sign: { x: -1, y: -1 }, corner: 0 },
-        { handle: 'tr', sign: { x: 1, y: -1 }, corner: 1 },
-        { handle: 'br', sign: { x: 1, y: 1 }, corner: 2 },
-        { handle: 'bl', sign: { x: -1, y: 1 }, corner: 3 },
+      const cornerHandles: { handle: HandleId; corner: number }[] = [
+        { handle: 'tl', corner: 0 },
+        { handle: 'tr', corner: 1 },
+        { handle: 'br', corner: 2 },
+        { handle: 'bl', corner: 3 },
       ];
-      for (const s of signs) {
+      for (const s of cornerHandles) {
         const c = corners[s.corner];
         if (Math.hypot(px - c.x, py - c.y) * zoom <= HANDLE_HIT) {
           return { kind: 'resize', handle: s.handle };
@@ -201,16 +194,10 @@ export default function CanvasStage(): JSX.Element {
       if (handle && selection.length === 1) {
         const layer = doc.layers.find((l) => l.id === selection[0]);
         if (layer && overlay) {
-          const center = { x: layer.x + layer.width / 2, y: layer.y + layer.height / 2 };
           const corners = layerCorners(layer);
-          const signs: Record<string, { x: number; y: number; corner: number }> = {
-            tl: { x: -1, y: -1, corner: 0 },
-            tr: { x: 1, y: -1, corner: 1 },
-            br: { x: 1, y: 1, corner: 2 },
-            bl: { x: -1, y: 1, corner: 3 },
-          };
+          const cornerOf: Record<HandleId, number> = { tl: 0, tr: 1, br: 2, bl: 3 };
           if (handle.kind === 'rotate') {
-            const startAngle = Math.atan2(p.y - center.y, p.x - center.x);
+            const center = { x: layer.x + layer.width / 2, y: layer.y + layer.height / 2 };
             dragRef.current = {
               mode: 'rotate',
               layerId: layer.id,
@@ -218,18 +205,22 @@ export default function CanvasStage(): JSX.Element {
               layerStart: { ...layer },
               anchorSign: null,
               anchorPoint: null,
-              startAngle,
+              startAngle: Math.atan2(p.y - center.y, p.x - center.x),
             };
           } else {
-            const s = signs[handle.handle];
-            const anchorPoint = corners[s.corner];
+            const signs: Record<HandleId, { x: number; y: number }> = {
+              tl: { x: -1, y: -1 },
+              tr: { x: 1, y: -1 },
+              br: { x: 1, y: 1 },
+              bl: { x: -1, y: 1 },
+            };
             dragRef.current = {
               mode: 'resize',
               layerId: layer.id,
               pointerStart: p,
               layerStart: { ...layer },
-              anchorSign: { x: s.x, y: s.y },
-              anchorPoint,
+              anchorSign: signs[handle.handle],
+              anchorPoint: corners[cornerOf[handle.handle]],
               startAngle: 0,
             };
           }
@@ -312,16 +303,10 @@ export default function CanvasStage(): JSX.Element {
         if (e.shiftKey && layer.type !== 'text') {
           const ratio = layer.width / layer.height;
           const byW = Math.abs(ldx) >= Math.abs(ldy);
-          newH = byW ? Math.round(newW / ratio) : newH;
-          newW = byW ? newW : Math.round(newH * ratio);
-          newW = Math.max(8, newW);
-          newH = Math.max(8, newH);
+          newH = byW ? Math.max(8, Math.round(newW / ratio)) : newH;
+          newW = byW ? newW : Math.max(8, Math.round(newH * ratio));
         }
-        const theta = degToRad(layer.rotation);
-        const off = {
-          x: (sx * newW) / 2,
-          y: (sy * newH) / 2,
-        };
+        const off = { x: (sx * newW) / 2, y: (sy * newH) / 2 };
         const rotatedOff = rotatePoint(off, { x: 0, y: 0 }, layer.rotation);
         const centerNew = {
           x: drag.anchorPoint.x - rotatedOff.x,
@@ -350,7 +335,7 @@ export default function CanvasStage(): JSX.Element {
   const onDoubleClick = useCallback(() => {
     if (selection.length === 1) {
       const layer = doc.layers.find((l) => l.id === selection[0]);
-      if (layer && layer.type === 'text') showToast('Edit text in the Text tab');
+      if (layer && layer.type === 'text') showToast('Edit text in the properties panel');
     }
   }, [doc.layers, selection, showToast]);
 
