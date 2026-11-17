@@ -2,7 +2,7 @@
  * LayersPanel: layer list with visibility/lock toggles, reorder, and add
  * layer actions.
  */
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { useEditor } from '../state/editorStore';
 
 export default function LayersPanel(): JSX.Element {
