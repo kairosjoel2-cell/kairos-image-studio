@@ -9,14 +9,12 @@
 import type {
   DocumentState,
   Layer,
-  TextLayerData,
-  ImageLayerData,
   PageBackground,
 } from '../types';
 import { NEUTRAL_ADJUSTMENTS } from '../types';
 import type { ExtractedBlock, ExtractionResult } from './aiExtract';
 import { sampleBlockColors, buildPatchCanvas } from './colorSample';
-import { putAsset, getAsset } from './db';
+import { putAsset } from './db';
 import { uid, loadImage } from '../utils/helpers';
 
 export interface FlyerBuildInput {
@@ -33,6 +31,18 @@ export interface FlyerBuildOutput {
   patchCount: number;
 }
 
+function imageLayerFields(assetId: string, w: number, h: number) {
+  return {
+    assetId,
+    naturalWidth: w,
+    naturalHeight: h,
+    crop: { x: 0, y: 0, width: w, height: h },
+    maskAssetId: null,
+    maskInvert: false,
+    adjustments: { ...NEUTRAL_ADJUSTMENTS },
+  };
+}
+
 export async function buildDocumentFromFlyer(input: FlyerBuildInput): Promise<FlyerBuildOutput> {
   const { baseDataUrl, width, height, extraction, projectName } = input;
 
@@ -44,44 +54,33 @@ export async function buildDocumentFromFlyer(input: FlyerBuildInput): Promise<Fl
   let patchCount = 0;
 
   // Base image layer (locked, always visible).
-  const baseLayer: Layer = {
+  const baseLayer = {
     id: uid('layer'),
     name: 'Original flyer',
-    type: 'image',
+    type: 'image' as const,
     x: 0,
     y: 0,
     width,
     height,
     rotation: 0,
     opacity: 1,
-    visible: locked layer true,
+    visible: true,
     locked: true,
-    lockedLayer: undefined,
-    blendMode: 'normal',
+    blendMode: 'normal' as const,
     flipX: false,
     flipY: false,
-    assetId: baseAssetId,
-    naturalWidth: width,
-    naturalHeight: height,
-    crop: { x: 0, y: 0, width, height },
-    maskAssetId: null,
-    maskInvert: false,
-    adjustments: { ...NEUTRAL_ADJUSTMENTS },
-  } as unknown as Layer;
-
-  layers.push(baseLayer);
+    ...imageLayerFields(baseAssetId, width, height),
+  };
+  layers.push(baseLayer as unknown as Layer);
 
   // Sample colors per block from the raster.
-  const sampleCanvas = await loadImage(baseDataUrl).then((img) => {
-    const c = document.createElement('canvas');
-    c.width = width;
-    c.height = height;
-    const sctx = c.getContext('2d');
-    if (sctx) sctx.drawImage(img, 0, 0, width, height);
-    return c;
-  });
+  const sampleImg = await loadImage(baseDataUrl);
+  const sampleCanvas = document.createElement('canvas');
+  sampleCanvas.width = width;
+  sampleCanvas.height = height;
   const sampleCtx = sampleCanvas.getContext('2d');
   if (!sampleCtx) throw new Error('Canvas unavailable');
+  sampleCtx.drawImage(sampleImg, 0, 0, width, height);
 
   for (const block of extraction.blocks) {
     const sample = sampleBlockColors(sampleCtx, width, height, block);
@@ -93,46 +92,45 @@ export async function buildDocumentFromFlyer(input: FlyerBuildInput): Promise<Fl
     await putAsset(patchAssetId, patchBlob);
     patchCount += 1;
 
-    const patchLayer: Layer = {
+    const px = Math.max(0, Math.floor(block.x * width));
+    const py = Math.max(0, Math.floor(block.y * height));
+    const pw = Math.max(1, Math.ceil(block.w * width));
+    const ph = Math.max(1, Math.ceil(block.h * height));
+
+    const patchLayer = {
       id: uid('layer'),
       name: 'Patch — ' + shortLabel(block),
-      type: 'image',
-      x: Math.max(0, Math.floor(block.x * width)),
-      y: Math.max(0, Math.floor(block.y * height)),
-      width: Math.max(1, Math.ceil(block.w * width)),
-      height: Math.max(1, Math.ceil(block.h * height)),
+      type: 'image' as const,
+      x: px,
+      y: py,
+      width: pw,
+      height: ph,
       rotation: 0,
       opacity: 1,
       visible: true,
       locked: false,
-      blendMode: 'normal',
+      blendMode: 'normal' as const,
       flipX: false,
       flipY: false,
-      assetId: patchAssetId,
-      naturalWidth: Math.max(1, Math.ceil(block.w * width)),
-      naturalHeight: Math.max(1, Math.ceil(block.h * height)),
-      crop: { x: 0, y: 0, width: Math.max(1, Math.ceil(block.w * width)), height: Math.max(1, Math.ceil(block.h * height)) },
-      maskAssetId: null,
-      maskInvert: false,
-      adjustments: { ...NEUTRAL_ADJUSTMENTS },
-    } as unknown as Layer;
-    layers.push(patchLayer);
+      ...imageLayerFields(patchAssetId, pw, ph),
+    };
+    layers.push(patchLayer as unknown as Layer);
 
     // Editable text layer matching the block.
     const fontSize = Math.max(8, Math.round(block.fontSizePx));
-    const textLayer: Layer = {
+    const textLayer = {
       id: uid('layer'),
       name: 'Text — ' + shortLabel(block),
-      type: 'text',
-      x: Math.max(0, Math.floor(block.x * width)),
-      y: Math.max(0, Math.floor(block.y * height)),
-      width: Math.max(40, Math.ceil(block.w * width)),
-      height: Math.max(fontSize * 1.4, Math.ceil(block.h * height)),
+      type: 'text' as const,
+      x: px,
+      y: py,
+      width: Math.max(40, pw),
+      height: Math.max(fontSize * 1.4, ph),
       rotation: 0,
       opacity: 1,
       visible: true,
       locked: false,
-      blendMode: 'normal',
+      blendMode: 'normal' as const,
       flipX: false,
       flipY: false,
       text: block.text,
@@ -150,8 +148,8 @@ export async function buildDocumentFromFlyer(input: FlyerBuildInput): Promise<Fl
       shadow: null,
       curve: null,
       uppercase: block.uppercase,
-    } as unknown as Layer;
-    layers.push(textLayer);
+    };
+    layers.push(textLayer as unknown as Layer);
   }
 
   const background: PageBackground = {
@@ -204,5 +202,3 @@ async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
     }, 'image/png');
   });
 }
-
-export { getAsset };
