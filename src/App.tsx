@@ -1,18 +1,24 @@
 /**
- * App shell: header, panels, canvas stage, status bar, modals, and global
- * keyboard shortcuts.
+ * KAIROSWEB app shell: header, panels, canvas stage, status bar, modals, and
+ * global keyboard shortcuts.
  */
 import { useEffect, useState } from 'react';
 import { EditorProvider, useEditor } from './state/editorStore';
 import CanvasStage from './components/CanvasStage';
 import LayersPanel from './components/LayersPanel';
 import PropertiesPanel from './components/PropertiesPanel';
-import { NewProjectModal, ProjectsModal, ExportModal } from './components/Modals';
+import {
+  ImportFlyerModal,
+  NewProjectModal,
+  ProjectsModal,
+  ExportModal,
+  SettingsModal,
+} from './components/Modals';
 import { createDocument } from './lib/document';
 
-type ModalKind = 'new' | 'projects' | 'export' | null;
+type ModalKind = 'import' | 'new' | 'projects' | 'export' | 'settings' | null;
 
-const initialDoc = createDocument('Untitled design', 1080, 1080);
+const initialDoc = createDocument('Untitled flyer', 1240, 1754);
 
 function EditorShell(): JSX.Element {
   const {
@@ -88,9 +94,12 @@ function EditorShell(): JSX.Element {
     <div className="app-root">
       <header className="app-header">
         <div className="brand">
-          KAIROS<span>.</span>
+          KAIROSWEB<span>.</span>
         </div>
-        <button className="btn btn-primary" onClick={() => setModal('new')}>
+        <button className="btn btn-primary" onClick={() => setModal('import')}>
+          ⬆ Import flyer
+        </button>
+        <button className="btn" onClick={() => setModal('new')}>
           + New
         </button>
         <button className="btn" onClick={() => setModal('projects')}>
@@ -108,6 +117,9 @@ function EditorShell(): JSX.Element {
         </button>
         <button className="btn btn-primary" onClick={() => setModal('export')}>
           Export
+        </button>
+        <button className="btn" onClick={() => setModal('settings')} aria-label="AI settings">
+          AI ⚙
         </button>
       </header>
 
@@ -130,10 +142,10 @@ function EditorShell(): JSX.Element {
       <footer className="status-bar">
         <span
           className={'dot' + (online ? '' : ' offline')}
-          title={online ? 'Online' : 'Offline — everything still works'}
+          title={online ? 'Online' : 'Offline — editing still works'}
         />
         <span>
-          {doc.width} x {doc.height} px
+          {doc.width} × {doc.height} px
         </span>
         <span>{doc.layers.length} layers</span>
         <span>{selectionLabel}</span>
@@ -142,9 +154,11 @@ function EditorShell(): JSX.Element {
         <span>{online ? 'Online' : 'Offline mode'}</span>
       </footer>
 
+      {modal === 'import' && <ImportFlyerModal onClose={() => setModal(null)} />}
       {modal === 'new' && <NewProjectModal onClose={() => setModal(null)} />}
       {modal === 'projects' && <ProjectsModal onClose={() => setModal(null)} />}
       {modal === 'export' && <ExportModal onClose={() => setModal(null)} />}
+      {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} />}
 
       {toast && (
         <div className="toast" role="status">
