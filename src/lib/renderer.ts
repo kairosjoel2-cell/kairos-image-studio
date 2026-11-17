@@ -161,7 +161,7 @@ async function paintBackground(
   if (bg.imageAssetId) {
     const drawable = await getDrawable(bg.imageAssetId);
     if (drawable) {
-      const { w, h } = sourceSize(drawable);
+      const size = sourceSize(drawable);
       if (bg.adjustments) ctx.filter = buildFilterString(bg.adjustments);
       if (bg.imageMode === 'tile') {
         const pattern = ctx.createPattern(drawable as unknown as CanvasImageSource, 'repeat');
@@ -170,9 +170,9 @@ async function paintBackground(
           ctx.fillRect(0, 0, width, height);
         }
       } else {
-        const scale = bg.imageMode === 'cover' ? Math.max(width / w, height / h) : Math.min(width / w, height / h);
-        const dw = w * scale;
-        const dh = h * scale;
+        const scale = bg.imageMode === 'cover' ? Math.max(width / size.w, height / size.h) : Math.min(width / size.w, height / size.h);
+        const dw = size.w * scale;
+        const dh = size.h * scale;
         ctx.drawImage(drawable as unknown as CanvasImageSource, (width - dw) / 2, (height - dh) / 2, dw, dh);
       }
       ctx.filter = 'none';
@@ -194,11 +194,12 @@ async function drawImageLayer(
     return;
   }
 
+  const size = sourceSize(drawable);
   const crop = layer.crop;
-  const sx = Math.max(0, Math.min(crop.x, sourceSize(drawable).w));
-  const sy = Math.max(0, Math.min(crop.y, sourceSize(drawable).h));
-  const sw = Math.max(1, Math.min(crop.width, sourceSize(drawable).w - sx));
-  const sh = Math.max(1, Math.min(crop.height, sourceSize(drawable).h - sy));
+  const sx = Math.max(0, Math.min(crop.x, size.w));
+  const sy = Math.max(0, Math.min(crop.y, size.h));
+  const sw = Math.max(1, Math.min(crop.width, size.w - sx));
+  const sh = Math.max(1, Math.min(crop.height, size.h - sy));
 
   ctx.save();
   ctx.filter = buildFilterString(layer.adjustments);
@@ -218,14 +219,14 @@ async function applyLuminanceMask(
   try {
     const mask = await getDrawable(layer.maskAssetId as string);
     if (!mask) return;
-    const { w, h } = sourceSize(mask);
+    const size = sourceSize(mask);
     const off = document.createElement('canvas');
     off.width = Math.max(1, Math.round(layer.width));
     off.height = Math.max(1, Math.round(layer.height));
     const octx = off.getContext('2d');
     if (!octx) return;
 
-    octx.drawImage(mask as unknown as CanvasImageSource, 0, 0, w, h, 0, 0, off.width, off.height);
+    octx.drawImage(mask as unknown as CanvasImageSource, 0, 0, size.w, size.h, 0, 0, off.width, off.height);
     const maskData = octx.getImageData(0, 0, off.width, off.height);
     for (let i = 0; i < maskData.data.length; i += 4) {
       const lum = (maskData.data[i] * 0.299 + maskData.data[i + 1] * 0.587 + maskData.data[i + 2] * 0.114) / 255;
@@ -257,6 +258,7 @@ function drawTextLayer(ctx: CanvasRenderingContext2D, layer: TextLayerData): voi
   const font = `${layer.italic ? 'italic ' : ''}${layer.fontWeight} ${layer.fontSize}px ${fontFamilyCss(layer.fontFamily)}`;
   ctx.save();
   ctx.font = font;
+  ctx.textAlign = layer.align;
   try {
     (ctx as unknown as { letterSpacing: string }).letterSpacing = `${layer.letterSpacing}px`;
   } catch {
@@ -304,6 +306,10 @@ function drawTextLayer(ctx: CanvasRenderingContext2D, layer: TextLayerData): voi
   ctx.restore();
 }
 
+function fontFamilyCss(family: string): string {
+  return family;
+}
+
 function drawCurvedText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -315,17 +321,18 @@ function drawCurvedText(
   const chars = Array.from(text);
   const widths = chars.map((c) => ctx.measureText(c).width + layer.letterSpacing);
   const total = widths.reduce((a, b) => a + b, 0);
-  const span = total / radius;
+  const safeRadius = Math.max(1, radius);
+  const span = total / safeRadius;
   let angle = -Math.PI / 2 - span / 2;
   const cx = layer.width / 2;
-  const cy = radius;
+  const cy = safeRadius;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   for (let i = 0; i < chars.length; i += 1) {
-    const half = widths[i] / 2 / radius;
+    const half = widths[i] / 2 / safeRadius;
     angle += half;
-    const px = cx + radius * Math.cos(angle);
-    const py = cy + radius * Math.sin(angle);
+    const px = cx + safeRadius * Math.cos(angle);
+    const py = cy + safeRadius * Math.sin(angle);
     ctx.save();
     ctx.translate(px, py);
     ctx.rotate(angle + Math.PI / 2);
