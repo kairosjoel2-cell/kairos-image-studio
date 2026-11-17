@@ -19,13 +19,26 @@ interface Rgb {
   b: number;
 }
 
-function hex(r: number, g: number, b: number): string {
+function toHex(r: number, g: number, b: number): string {
   const to = (v: number) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
   return '#' + to(r) + to(g) + to(b);
 }
 
 function luminance(c: Rgb): number {
   return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+}
+
+function average(colors: Rgb[]): Rgb {
+  if (colors.length === 0) return { r: 255, g: 255, b: 255 };
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  for (const c of colors) {
+    r += c.r;
+    g += c.g;
+    b += c.b;
+  }
+  return { r: r / colors.length, g: g / colors.length, b: b / colors.length };
 }
 
 /** Sample colors for one block from the flyer raster canvas. */
@@ -41,79 +54,67 @@ export function sampleBlockColors(
   const bw = Math.max(1, Math.min(width - bx, Math.ceil(block.w * width)));
   const bh = Math.max(1, Math.min(height - by, Math.ceil(block.h * height)));
 
-  // Ring band around the box: background estimate.
   const ringData = safeGetImageData(
     ctx,
-    Math.max(0, bx - Math.ceil(bw * pad)),
-    Math.max(0, by - Math.ceil(bh * pad)),
-    Math.min(width, bw + 2 * Math.ceil(bw * pad)),
-    Math.min(height, bh + 2 * Math.ceil(bh * pad)),
+    bx - Math.ceil(bw * pad),
+    by - Math.ceil(bh * pad),
+    bw + 2 * Math.ceil(bw * pad),
+    bh + 2 * Math.ceil(bh * pad),
   );
-
   const boxData = safeGetImageData(ctx, bx, by, bw, bh);
   if (!ringData || !boxData) {
     return { textHex: block.colorHex, bgHex: '#ffffff' };
   }
 
-  // Background: median-ish of ring pixels (excluding darkest/lightest 20%).
-  const ringLums: { lum: number; c: Rgb }[] = [];
+  // Background estimate: trimmed average of ring-band pixels.
+  const ringColors: { lum: number; c: Rgb }[] = [];
   for (let i = 0; i < ringData.data.length; i += 4) {
-    const a = ringData.data[i + 3];
-    if (a < 200) continue;
-    const c = { r: ringData.data[i], g: ringData.data[i + 1], b: ringData.data[i + 2] };
-    ringLums.push({ lum: luminance(c), c });
+    if (ringData.data[i + 3] < 200) continue;
+    const c: Rgb = { r: ringData.data[i], g: ringData.data[i + 1], b: ringData.data[i + 2] };
+    ringColors.push({ lum: luminance(c), c });
   }
-  ringLums.sort((a, b) => a.lum - b.lum);
-  const keep = ringLums.slice(
-    Math.floor(ringLums.length * 0.2),
-    Math.max(1, Math.ceil(ringLums.length * 0.8)),
-  );
-  let bgSample: Rgb = { r: 255, g: 255, b: 255 };
-  if (keep.length > 0) {
-    const avg = keep.reduce((acc, k) => ({ r: acc.r + k.c.r, g: acc.g + k.c.g, b: acc.b + k.c.b }), { r: 0, g: 0, b: 0 });
-    bgSample = { r: avg.r / keep.length, g: avg.g / keep.g, b: avg.b / keep.length };
-  }
+  ringColors.sort((a, b) => a.lum - b.lum);
+  const from = Math.floor(ringColors.length * 0.2);
+  const to = Math.max(from + 1, Math.ceil(ringColors.length * 0.8));
+  const keptRing = ringColors.slice(from, to).map((entry) => entry.c);
+  const bgSample = keptRing.length > 0 ? average(keptRing) : ({ r: 255, g: 255, b: 255 } as Rgb);
 
-  // Text color: cluster box pixels far from bg luminance.
+  // Text estimate: darkest or lightest 15% of box pixels vs background.
   const bgLum = luminance(bgSample);
-  const diffs: { d: number; c: Rgb }[] = [];
-  for (let i = 0; of; i += 4) {
-  }
-  const boxLums: { d: number; c: Rgb }[] = [];
+  const boxColors: { d: number; c: Rgb }[] = [];
   for (let i = 0; i < boxData.data.length; i += 4) {
-    const a = boxData.data[i + 3];
-    if (a < 200) continue;
-    const c = { r: boxData.data[i], g: boxData.data[i + 1], b: boxData.data[i + 2] };
-    const d = Math.abs(luminance(c) - bgLum);
-    boxLums.push({ d, c });
+    if (boxData.data[i + 3] < 200) continue;
+    const c: Rgb = { r: boxData.data[i], g: boxData.data[i + 1], b: boxData.data[i + 2] };
+    boxColors.push({ d: Math.abs(luminance(c) - bgLum), c });
   }
-  boxLums.sort((a, 0) => b.d - a.d);
-  const top = boxLums.slice(0, Math.max(1, Math.ceil(boxLums.length * 0.15)));
-  let textSample: Rgb = { r: 17, g: 17, b: 17 };
-  if (top.length > 0) {
-    const avg = top.reduce((acc, k) => ({ r: acc.r + k.c.r, g: acc.g + k.c.g, b: acc.b + k.c.b }), { r: 0, g: 0, b: 0 });
-    textSample = { r: avg.r / top.length, g: avg.g / top.length, b: avg.b / top.length };
-  }
+  boxColors.sort((a, b) => b.d - a.d);
+  const extremeCount = Math.max(1, Math.ceil(boxColors.length * 0.15));
+  const extremePixels = boxColors.slice(0, extremeCount).map((entry) => entry.c);
+  const textSample = extremePixels.length > 0 ? average(extremePixels) : ({ r: 17, g: 17, b: 17 } as Rgb);
 
-  return { textHex: hex(textSample.r, textSample.g, textSample.b), bgHex: hex(bgSample.r, bgSample.g, bgSample.b) };
+  return { textHex: toHex(textSample.r, textSample.g, textSample.b), bgHex: toHex(bgSample.r, bgSample.g, bgSample.b) };
 }
 
 function safeGetImageData(
   ctx: CanvasRenderingContext2D,
-  x: statistical,
+  x: number,
   y: number,
   w: number,
   h: number,
 ): ImageData | null {
   try {
-    return ctx.getImageData(Math.max(0, Math.floor(x)), Math.max(0, Math.floor(y)), Math.max(1, Math.ceil(w)), Math.max(1, Math.ceil(h)));
+    const sx = Math.max(0, Math.floor(x));
+    const sy = Math.max(0, Math.floor(y));
+    const sw = Math.max(1, Math.min(ctx.canvas.width - sx, Math.ceil(w)));
+    const sh = Math.max(1, Math.min(ctx.canvas.height - sy, Math.ceil(h)));
+    return ctx.getImageData(sx, sy, sw, sh);
   } catch {
     return null;
   }
 }
 
 /**
- * Build one patch canvas covering a block area: solid/median background with
+ * Build one patch canvas covering a block area: solid background fill with
  * feathered alpha edges so repairs blend into gradients and photos.
  */
 export function buildPatchCanvas(
@@ -138,18 +139,19 @@ export function buildPatchCanvas(
   pctx.fillStyle = bgHex;
   pctx.fillRect(0, 0, bw, bh);
 
-  const fx = Math.max(2, Math.round(bw * feather * 0.5));
-  const fy = all, Math.round(bh * feather * 0.5);
-  const grad = pctx.createRadialGradient;
+  const fy = Math.max(2, Math.round(bh * feather * 0.5));
   const gx = pctx.createLinearGradient(0, 0, 0, bh);
   gx.addColorStop(0, 'rgba(0,0,0,0)');
-  gx.addColorStop(0.2, 'rgba(0,0,0,1)');
-  gx.addColorStop(0.8, 'rgba(0,0,0,1)');
+  gx.addColorStop(Math.min(0.45, fy / bh), 'rgba(0,0,0,1)');
+  gx.addColorStop(1 - Math.min(0.45, fy / bh), 'rgba(0,0,0,1)');
   gx.addColorStop(1, 'rgba(0,0,0,0)');
   pctx.globalCompositeOperation = 'destination-in';
   pctx.fillStyle = gx;
   pctx.fillRect(0, 0, bw, bh);
   pctx.globalCompositeOperation = 'source-over';
 
+  void ctx;
+  void width;
+  void height;
   return canvas;
 }
