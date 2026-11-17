@@ -1,6 +1,6 @@
 /**
  * PropertiesPanel: transform, per-layer-type properties, adjustments,
- * background, and canvas settings.
+ * crop, text, shape styling, background, and canvas settings.
  */
 import React, { useRef } from 'react';
 import { useEditor } from '../state/editorStore';
@@ -8,7 +8,7 @@ import { BLEND_MODES, NEUTRAL_ADJUSTMENTS } from '../types';
 import type { Layer, Adjustments, ShadowStyle, StrokeStyle, GradientFill } from '../types';
 import { FILTER_PRESETS } from '../lib/filters';
 import { CANVAS_TEMPLATES } from '../lib/document';
-import { clamp, loadImage, uid } from '../utils/helpers';
+import { loadImage, uid } from '../utils/helpers';
 import { putAsset } from '../lib/db';
 
 function Slider({
@@ -18,7 +18,6 @@ function Slider({
   max,
   step = 1,
   onChange,
-  onCommitId,
 }: {
   label: string;
   value: number;
@@ -26,22 +25,13 @@ function Slider({
   max: number;
   step?: number;
   onChange: (v: number) => void;
-  onCommitId?: string;
 }): JSX.Element {
   return (
     <div className="field">
       <label>
         {label} <span style={{ color: 'var(--k-text-faint)' }}>{Math.round(value * 100) / 100}</span>
       </label>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        data-coalesce={onCommitId}
-      />
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
     </div>
   );
 }
@@ -56,7 +46,7 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 }
 
 export default function PropertiesPanel(): JSX.Element {
-  const { doc, selection, mutateLayer, patchBackground, setDocSize, renameDoc, addImageLayer, showToast } = useEditor();
+  const { doc, selection, mutateLayer, patchBackground, setDocSize, renameDoc, showToast } = useEditor();
   const bgFileRef = useRef<HTMLInputElement>(null);
 
   const selected = selection.length === 1 ? doc.layers.find((l) => l.id === selection[0]) ?? null : null;
@@ -92,18 +82,10 @@ export default function PropertiesPanel(): JSX.Element {
 
   const handleBgImage = async (file: File) => {
     const assetId = uid('asset');
-    const url = URL.createObjectURL(file);
-    try {
-      const img = await loadImage(url);
-      await putAsset(assetId, file);
-      patchBackground({ imageAssetId: assetId, imageMode: 'cover' });
-      void img;
-      showToast('Background image set');
-    } catch {
-      showToast('Could not load background image');
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+    await putAsset(assetId, file);
+    patchBackground({ imageAssetId: assetId, imageMode: 'cover' });
+    void loadImage(URL.createObjectURL(file)).catch(() => undefined);
+    showToast('Background image set');
   };
 
   return (
@@ -161,7 +143,6 @@ export default function PropertiesPanel(): JSX.Element {
             min={-180}
             max={180}
             onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, rotation: v }), 'rot:' + selected.id)}
-            onCommitId={'rot:' + selected.id}
           />
           <Slider
             label="Opacity"
@@ -170,7 +151,6 @@ export default function PropertiesPanel(): JSX.Element {
             max={1}
             step={0.01}
             onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, opacity: v }), 'op:' + selected.id)}
-            onCommitId={'op:' + selected.id}
           />
           <div className="field">
             <label>Blend mode</label>
@@ -187,10 +167,10 @@ export default function PropertiesPanel(): JSX.Element {
           </div>
           <div className="btn-row" style={{ marginBottom: 6 }}>
             <button className="btn" onClick={() => mutateLayer(selected.id, (l) => ({ ...l, flipX: !l.flipX }))}>
-              ⇄ Flip H
+              Flip H
             </button>
             <button className="btn" onClick={() => mutateLayer(selected.id, (l) => ({ ...l, flipY: !l.flipY }))}>
-              ⇅ Flip V
+              Flip V
             </button>
           </div>
 
@@ -205,14 +185,14 @@ export default function PropertiesPanel(): JSX.Element {
                 ))}
               </div>
               <div className="section-title">Adjust</div>
-              <Slider label="Brightness" value={selected.adjustments.brightness} min={0} max={2} step={0.01} onChange={(v) => patchAdjustments(selected, { brightness: v }, 'br:' + selected.id)} onCommitId={'br:' + selected.id} />
-              <Slider label="Contrast" value={selected.adjustments.contrast} min={0} max={2} step={0.01} onChange={(v) => patchAdjustments(selected, { contrast: v }, 'ct:' + selected.id)} onCommitId={'ct:' + selected.id} />
-              <Slider label="Saturation" value={selected.adjustments.saturation} min={0} max={2} step={0.01} onChange={(v) => patchAdjustments(selected, { saturation: v }, 'st:' + selected.id)} onCommitId={'st:' + selected.id} />
-              <Slider label="Hue" value={selected.adjustments.hue} min={-180} max={180} onChange={(v) => patchAdjustments(selected, { hue: v }, 'hu:' + selected.id)} onCommitId={'hu:' + selected.id} />
-              <Slider label="Blur" value={selected.adjustments.blur} min={0} max={20} step={0.1} onChange={(v) => patchAdjustments(selected, { blur: v }, 'bl:' + selected.id)} onCommitId={'bl:' + selected.id} />
-              <Slider label="Sepia" value={selected.adjustments.sepia} min={0} max={1} step={0.01} onChange={(v) => patchAdjustments(selected, { sepia: v }, 'se:' + selected.id)} onCommitId={'se:' + selected.id} />
-              <Slider label="Grayscale" value={selected.adjustments.grayscale} min={0} max={1} step={0.01} onChange={(v) => patchAdjustments(selected, { grayscale: v }, 'gr:' + selected.id)} onCommitId={'gr:' + selected.id} />
-              <Slider label="Invert" value={selected.adjustments.invert} min={0} max={1} step={0.01} onChange={(v) => patchAdjustments(selected, { invert: v }, 'in:' + selected.id)} onCommitId={'in:' + selected.id} />
+              <Slider label="Brightness" value={selected.adjustments.brightness} min={0} max={2} step={0.01} onChange={(v) => patchAdjustments(selected, { brightness: v }, 'br:' + selected.id)} />
+              <Slider label="Contrast" value={selected.adjustments.contrast} min={0} max={2} step={0.01} onChange={(v) => patchAdjustments(selected, { contrast: v }, 'ct:' + selected.id)} />
+              <Slider label="Saturation" value={selected.adjustments.saturation} min={0} max={2} step={0.01} onChange={(v) => patchAdjustments(selected, { saturation: v }, 'st:' + selected.id)} />
+              <Slider label="Hue" value={selected.adjustments.hue} min={-180} max={180} onChange={(v) => patchAdjustments(selected, { hue: v }, 'hu:' + selected.id)} />
+              <Slider label="Blur" value={selected.adjustments.blur} min={0} max={20} step={0.1} onChange={(v) => patchAdjustments(selected, { blur: v }, 'bl:' + selected.id)} />
+              <Slider label="Sepia" value={selected.adjustments.sepia} min={0} max={1} step={0.01} onChange={(v) => patchAdjustments(selected, { sepia: v }, 'se:' + selected.id)} />
+              <Slider label="Grayscale" value={selected.adjustments.grayscale} min={0} max={1} step={0.01} onChange={(v) => patchAdjustments(selected, { grayscale: v }, 'gr:' + selected.id)} />
+              <Slider label="Invert" value={selected.adjustments.invert} min={0} max={1} step={0.01} onChange={(v) => patchAdjustments(selected, { invert: v }, 'in:' + selected.id)} />
               <button
                 className="btn btn-block"
                 onClick={() => patchAdjustments(selected, { ...NEUTRAL_ADJUSTMENTS }, 'reset:' + selected.id)}
@@ -337,9 +317,9 @@ export default function PropertiesPanel(): JSX.Element {
                   <option value="right">Right</option>
                 </select>
               </div>
-              <Slider label="Line height" value={selected.lineHeight} min={0.8} max={2.4} step={0.05} onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, lineHeight: v }), 'lh:' + selected.id)} onCommitId={'lh:' + selected.id} />
-              <Slider label="Letter spacing" value={selected.letterSpacing} min={-10} max={40} step={0.5} onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, letterSpacing: v }), 'ls:' + selected.id)} onCommitId={'ls:' + selected.id} />
-              <Slider label="Curve radius" value={selected.curve ? selected.curve.radius : 0} min={0} max={2000} onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, curve: v > 0 ? { radius: v } : null }), 'cv:' + selected.id)} onCommitId={'cv:' + selected.id} />
+              <Slider label="Line height" value={selected.lineHeight} min={0.8} max={2.4} step={0.05} onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, lineHeight: v }), 'lh:' + selected.id)} />
+              <Slider label="Letter spacing" value={selected.letterSpacing} min={-10} max={40} step={0.5} onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, letterSpacing: v }), 'ls:' + selected.id)} />
+              <Slider label="Curve radius" value={selected.curve ? selected.curve.radius : 0} min={0} max={2000} onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, curve: v > 0 ? { radius: v } : null }), 'cv:' + selected.id)} />
               <div className="btn-row" style={{ marginBottom: 8 }}>
                 <button className={'btn' + (selected.uppercase ? ' btn-primary' : '')} onClick={() => mutateLayer(selected.id, (l) => ({ ...l, uppercase: !l.uppercase }))}>
                   AA
@@ -359,10 +339,10 @@ export default function PropertiesPanel(): JSX.Element {
             <>
               <div className="section-title">Shape</div>
               {selected.shape === 'rectangle' && (
-                <Slider label="Corner radius" value={selected.cornerRadius} min={0} max={200} onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, cornerRadius: v }), 'cr:' + selected.id)} onCommitId={'cr:' + selected.id} />
+                <Slider label="Corner radius" value={selected.cornerRadius} min={0} max={200} onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, cornerRadius: v }), 'cr:' + selected.id)} />
               )}
               {selected.shape === 'star' && (
-                <Slider label="Points" value={selected.points} min={3} max={12} onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, points: Math.round(v) }), 'pt:' + selected.id)} onCommitId={'pt:' + selected.id} />
+                <Slider label="Points" value={selected.points} min={3} max={12} onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, points: Math.round(v) }), 'pt:' + selected.id)} />
               )}
               <ColorField label="Fill" value={selected.fill} onChange={(v) => mutateLayer(selected.id, (l) => ({ ...l, fill: v }), 'fill:' + selected.id)} />
             </>
@@ -386,7 +366,7 @@ export default function PropertiesPanel(): JSX.Element {
                 <>
                   <ColorField label="From" value={selected.gradient.from} onChange={(v) => patchGradient(selected, { from: v })} />
                   <ColorField label="To" value={selected.gradient.to} onChange={(v) => patchGradient(selected, { to: v })} />
-                  <Slider label="Angle" value={selected.gradient.angle} min={0} max={360} onChange={(v) => patchGradient(selected, { angle: v })} onCommitId={'ga:' + selected.id} />
+                  <Slider label="Angle" value={selected.gradient.angle} min={0} max={360} onChange={(v) => patchGradient(selected, { angle: v })} />
                 </>
               )}
 
@@ -405,7 +385,7 @@ export default function PropertiesPanel(): JSX.Element {
               {selected.stroke?.enabled && (
                 <>
                   <ColorField label="Color" value={selected.stroke.color} onChange={(v) => patchStroke(selected, { color: v })} />
-                  <Slider label="Width" value={selected.stroke.width} min={0.5} max={40} step={0.5} onChange={(v) => patchStroke(selected, { width: v })} onCommitId={'sw:' + selected.id} />
+                  <Slider label="Width" value={selected.stroke.width} min={0.5} max={40} step={0.5} onChange={(v) => patchStroke(selected, { width: v })} />
                 </>
               )}
 
@@ -424,9 +404,9 @@ export default function PropertiesPanel(): JSX.Element {
               {selected.shadow?.enabled && (
                 <>
                   <ColorField label="Color" value={selected.shadow.color} onChange={(v) => patchShadow(selected, { color: v })} />
-                  <Slider label="Blur" value={selected.shadow.blur} min={0} max={60} onChange={(v) => patchShadow(selected, { blur: v })} onCommitId={'sb:' + selected.id} />
-                  <Slider label="Offset X" value={selected.shadow.offsetX} min={-60} max={60} onChange={(v) => patchShadow(selected, { offsetX: v })} onCommitId={'sx:' + selected.id} />
-                  <Slider label="Offset Y" value={selected.shadow.offsetY} min={-60} max={60} onChange={(v) => patchShadow(selected, { offsetY: v })} onCommitId={'sy:' + selected.id} />
+                  <Slider label="Blur" value={selected.shadow.blur} min={0} max={60} onChange={(v) => patchShadow(selected, { blur: v })} />
+                  <Slider label="Offset X" value={selected.shadow.offsetX} min={-60} max={60} onChange={(v) => patchShadow(selected, { offsetX: v })} />
+                  <Slider label="Offset Y" value={selected.shadow.offsetY} min={-60} max={60} onChange={(v) => patchShadow(selected, { offsetY: v })} />
                 </>
               )}
             </>
@@ -492,16 +472,6 @@ export default function PropertiesPanel(): JSX.Element {
             </button>
           ))}
       </div>
-      <div style={{ height: 12 }} />
-      <button className="btn btn-block" onClick={() => {
-        if (selection.length === 1) {
-          const layer = doc.layers.find((l) => l.id === selection[0]);
-          if (layer) mutateLayer(layer.id, (l) => ({ ...l, name: l.name }));
-        }
-        showToast('Properties panel');
-      }}>
-        —
-      </button>
     </>
   );
 }
