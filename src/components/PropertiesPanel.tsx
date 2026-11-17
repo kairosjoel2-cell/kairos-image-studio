@@ -2,13 +2,13 @@
  * PropertiesPanel: transform, per-layer-type properties, adjustments,
  * crop, text, shape styling, background, and canvas settings.
  */
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { useEditor } from '../state/editorStore';
 import { BLEND_MODES, NEUTRAL_ADJUSTMENTS } from '../types';
 import type { Layer, Adjustments, ShadowStyle, StrokeStyle, GradientFill } from '../types';
 import { FILTER_PRESETS } from '../lib/filters';
 import { CANVAS_TEMPLATES } from '../lib/document';
-import { loadImage, uid } from '../utils/helpers';
+import { uid } from '../utils/helpers';
 import { putAsset } from '../lib/db';
 
 function Slider({
@@ -84,7 +84,6 @@ export default function PropertiesPanel(): JSX.Element {
     const assetId = uid('asset');
     await putAsset(assetId, file);
     patchBackground({ imageAssetId: assetId, imageMode: 'cover' });
-    void loadImage(URL.createObjectURL(file)).catch(() => undefined);
     showToast('Background image set');
   };
 
@@ -190,7 +189,7 @@ export default function PropertiesPanel(): JSX.Element {
               <Slider label="Saturation" value={selected.adjustments.saturation} min={0} max={2} step={0.01} onChange={(v) => patchAdjustments(selected, { saturation: v }, 'st:' + selected.id)} />
               <Slider label="Hue" value={selected.adjustments.hue} min={-180} max={180} onChange={(v) => patchAdjustments(selected, { hue: v }, 'hu:' + selected.id)} />
               <Slider label="Blur" value={selected.adjustments.blur} min={0} max={20} step={0.1} onChange={(v) => patchAdjustments(selected, { blur: v }, 'bl:' + selected.id)} />
-              <Slider label="Sepia" value={selected.adjustments.sepia} min={0} max={1} step={0.01} onChange={(v) => patchAdjustments(selected, { sepia: v }, 'se:' + selected.id)} />
+              <Slider label="Sepia" value={selected.adjustments.sepia} min={0} max={1} step={0.01} onChange={(v) => patchAdjustments(selected, { sepia: v }, 'gr:' + selected.id)} />
               <Slider label="Grayscale" value={selected.adjustments.grayscale} min={0} max={1} step={0.01} onChange={(v) => patchAdjustments(selected, { grayscale: v }, 'gr:' + selected.id)} />
               <Slider label="Invert" value={selected.adjustments.invert} min={0} max={1} step={0.01} onChange={(v) => patchAdjustments(selected, { invert: v }, 'in:' + selected.id)} />
               <button
