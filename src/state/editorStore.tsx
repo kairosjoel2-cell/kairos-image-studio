@@ -1,7 +1,7 @@
 /**
- * Editor store: document state, selection, history, persistence, and UI
- * messages in one React context. All document mutations flow through here
- * so undo/redo and autosave stay consistent.
+ * Editor store: document state, selection, history, persistence, AI flyer
+ * import, and UI messages in one React context. All document mutations flow
+ * through here so undo/redo and autosave stay consistent.
  */
 import React, {
   createContext,
@@ -24,6 +24,16 @@ import { HistoryEngine } from '../lib/history';
 import { putProject, getProject, deleteProject, putAsset } from '../lib/db';
 import { renderThumbnail } from '../lib/renderer';
 import { uid, loadImage, clamp } from '../utils/helpers';
+import {
+  AiClient,
+  loadSettings,
+  saveSettings,
+  fileToVisionDataUrl,
+  type AiSettings,
+} from '../lib/aiClient';
+import { importFlyer } from '../lib/flyerImport';
+import { extractFlyerStructure } from '../lib/aiExtract';
+import { buildDocumentFromFlyer } from '../lib/aiDocument';
 
 export interface EditorContextValue {
   doc: DocumentState;
@@ -32,6 +42,7 @@ export interface EditorContextValue {
   canRedo: boolean;
   dirty: boolean;
   toast: string | null;
+  aiSettings: AiSettings;
 
   showToast(message: string): void;
 
@@ -47,6 +58,13 @@ export interface EditorContextValue {
   openProject(id: string): Promise<void>;
   removeProject(id: string): Promise<void>;
   saveNow(): Promise<void>;
+
+  updateAiSettings(settings: AiSettings): void;
+
+  importFlyerFile(
+    file: File,
+    projectName: string,
+  ): Promise<{ blockCount: number; patchCount: number; mode: string; notes: string[] }>;
 
   addImageLayer(file: File): Promise<void>;
   addTextLayer(): void;
@@ -86,17 +104,20 @@ export function EditorProvider({
   const [selection, setSelectionState] = useState<string[]>([]);
   const [dirty, setDirty] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [aiSettings, setAiSettings] = useState<AiSettings>(() => loadSettings());
 
   const historyRef = useRef<HistoryEngine<DocumentState>>(new HistoryEngine<DocumentState>(initialDoc));
   const docRef = useRef(doc);
   docRef.current = doc;
+  const aiSettingsRef = useRef(aiSettings);
+  aiSettingsRef.current = aiSettings;
   const saveTimer = useRef<number | undefined>(undefined);
   const toastTimer = useRef<number | undefined>(undefined);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(null), 2600);
+    toastTimer.current = window.setTimeout(() => setToast(null), 3200);
   }, []);
 
   const scheduleSave = useCallback((next: DocumentState) => {
@@ -109,7 +130,7 @@ export function EditorProvider({
           await putProject(next, thumb);
           setDirty(false);
         } catch (err) {
-          console.error('[KAIROS] autosave failed', err);
+          console.error('[KAIROSWEB] autosave failed', err);
         }
       })();
     }, 900);
@@ -156,7 +177,7 @@ export function EditorProvider({
       const tpl = CANVAS_TEMPLATES.find((t) => t.id === templateId) ?? CANVAS_TEMPLATES[0];
       const width = templateId === 'custom' ? clamp(Math.round(customW), 16, 6000) : tpl.width;
       const height = templateId === 'custom' ? clamp(Math.round(customH), 16, 6000) : tpl.height;
-      const title = name.trim().length > 0 ? name.trim() : 'Untitled design';
+      const title = name.trim().length > 0 ? name.trim() : 'Untitled flyer';
       const fresh = createDocument(title, width, height, tpl.id === 'custom' ? '#ffffff' : tpl.bg);
       historyRef.current.reset(fresh);
       setDoc(fresh);
@@ -185,7 +206,7 @@ export function EditorProvider({
     async (id: string) => {
       await deleteProject(id);
       if (docRef.current.id === id) {
-        const fresh = createDocument('Untitled design', 1080, 1080);
+        const fresh = createDocument('Untitled flyer', 1240, 1754);
         historyRef.current.reset(fresh);
         setDoc(fresh);
         setSelectionState([]);
@@ -203,10 +224,64 @@ export function EditorProvider({
       setDirty(false);
       showToast('Project saved');
     } catch (err) {
-      console.error('[KAIROS] save failed', err);
+      console.error('[KAIROSWEB] save failed', err);
       showToast('Save failed');
     }
   }, [showToast]);
+
+  const updateAiSettings = useCallback(
+    (settings: AiSettings) => {
+      setAiSettings(settings);
+      saveSettings(settings);
+      showToast(settings.apiKey ? 'AI settings saved' : 'API key cleared');
+    },
+    [showToast],
+  );
+
+  const importFlyerFile = useCallback(
+    async (file: File, projectName: string) => {
+      showToast('Importing flyer…');
+      const imported = await importFlyer(file);
+
+      showToast('Analyzing design…');
+      const client = new AiClient(aiSettingsRef.current);
+      const visionUrl = await fileToVisionDataUrl(file, 1600);
+      const extraction = await extractFlyerStructure(
+        client,
+        visionUrl,
+        imported.width,
+        imported.height,
+      );
+
+      const title = projectName.trim().length > 0 ? projectName.trim() : file.name.replace(/\.[^.]+$/, '') || 'Imported flyer';
+      const built = await buildDocumentFromFlyer({
+        baseDataUrl: imported.dataUrl,
+        width: imported.width,
+        height: imported.height,
+        extraction,
+        projectName: title,
+      });
+
+      historyRef.current.reset(built.doc);
+      setDoc(built.doc);
+      setSelectionState([]);
+      scheduleSave(built.doc);
+
+      const summary =
+        extraction.mode === 'ai'
+          ? 'Imported: ' + built.blockCount + ' text blocks, ' + built.patchCount + ' patches'
+          : 'Imported in offline mode — add a key in Settings for text extraction';
+      showToast(summary);
+
+      return {
+        blockCount: built.blockCount,
+        patchCount: built.patchCount,
+        mode: extraction.mode,
+        notes: extraction.notes,
+      };
+    },
+    [scheduleSave, showToast],
+  );
 
   const addImageLayer = useCallback(
     async (file: File) => {
@@ -257,7 +332,7 @@ export function EditorProvider({
 
   const addTextLayer = useCallback(() => {
     const current = docRef.current;
-    const fontSize = clamp(Math.round(current.width / 14), 18, 160);
+    const fontSize = clamp(Math.round(current.width / 24), 18, 220);
     const width = Math.round(current.width * 0.6);
     const height = Math.round(fontSize * 1.5);
     const data: TextLayerData = {
@@ -417,7 +492,6 @@ export function EditorProvider({
     [commit],
   );
 
-  // Warn before leaving with pending autosave.
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (dirty) {
@@ -436,6 +510,7 @@ export function EditorProvider({
       canRedo: historyRef.current.canRedo,
       dirty,
       toast,
+      aiSettings,
       showToast,
       commit,
       undo,
@@ -447,6 +522,8 @@ export function EditorProvider({
       openProject,
       removeProject,
       saveNow,
+      updateAiSettings,
+      importFlyerFile,
       addImageLayer,
       addTextLayer,
       addShapeLayer,
@@ -463,6 +540,7 @@ export function EditorProvider({
       selection,
       dirty,
       toast,
+      aiSettings,
       showToast,
       commit,
       undo,
@@ -474,6 +552,8 @@ export function EditorProvider({
       openProject,
       removeProject,
       saveNow,
+      updateAiSettings,
+      importFlyerFile,
       addImageLayer,
       addTextLayer,
       addShapeLayer,
