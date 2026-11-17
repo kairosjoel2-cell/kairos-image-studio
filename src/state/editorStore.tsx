@@ -18,7 +18,6 @@ import type {
   PageBackground,
   ShapeKind,
   TextLayerData,
-  ImageLayerData,
 } from '../types';
 import { createDocument, CANVAS_TEMPLATES } from '../lib/document';
 import { HistoryEngine } from '../lib/history';
@@ -492,5 +491,3 @@ export function EditorProvider({
 }
 
 export { createDocument };
-
-export type { ImageLayerData };
