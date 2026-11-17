@@ -6,22 +6,32 @@ import React, { useRef } from 'react';
 import { useEditor } from '../state/editorStore';
 
 export default function LayersPanel(): JSX.Element {
-  const { doc, selection, setSelection, toggleSelection, mutateLayer, deleteLayer, duplicateLayer, moveLayer, addImageLayer, addTextLayer, addShapeLayer } =
-    useEditor();
+  const {
+    doc,
+    selection,
+    toggleSelection,
+    mutateLayer,
+    deleteLayer,
+    duplicateLayer,
+    moveLayer,
+    addImageLayer,
+    addTextLayer,
+    addShapeLayer,
+  } = useEditor();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const ordered = [...doc.layers].reverse();
 
   const iconFor = (type: string, shape?: string): string => {
-    if (type === 'image') return '🖼';
-    if (type === 'text') return '🅣';
-    if (shape === 'rectangle') return '▭';
-    if (shape === 'ellipse') return '◯';
-    if (shape === 'triangle') return '△';
-    if (shape === 'star') return '★';
-    if (shape === 'line') return '╱';
-    if (shape === 'arrow') return '→';
-    return '◻';
+    if (type === 'image') return 'IMG';
+    if (type === 'text') return 'TXT';
+    if (shape === 'rectangle') return 'RECT';
+    if (shape === 'ellipse') return 'ELL';
+    if (shape === 'triangle') return 'TRI';
+    if (shape === 'star') return 'STAR';
+    if (shape === 'line') return 'LINE';
+    if (shape === 'arrow') return 'ARR';
+    return 'SHP';
   };
 
   return (
@@ -29,32 +39,28 @@ export default function LayersPanel(): JSX.Element {
       <div className="section-title">Add</div>
       <div className="btn-row" style={{ marginBottom: 12 }}>
         <button className="btn" onClick={() => fileRef.current?.click()}>
-          🖼 Image
+          + Image
         </button>
         <button className="btn" onClick={addTextLayer}>
-          🅣 Text
+          + Text
         </button>
-        <button
-          className="btn"
-          onClick={() => addShapeLayer('rectangle')}
-          aria-label="Add rectangle"
-        >
-          ▭
+        <button className="btn" onClick={() => addShapeLayer('rectangle')}>
+          + Rect
         </button>
-        <button className="btn" onClick={() => addShapeLayer('ellipse')} aria-label="Add ellipse">
-          ◯
+        <button className="btn" onClick={() => addShapeLayer('ellipse')}>
+          + Ellipse
         </button>
-        <button className="btn" onClick={() => addShapeLayer('triangle')} aria-label="Add triangle">
-          △
+        <button className="btn" onClick={() => addShapeLayer('triangle')}>
+          + Triangle
         </button>
-        <button className="btn" onClick={() => addShapeLayer('star')} aria-label="Add star">
-          ★
+        <button className="btn" onClick={() => addShapeLayer('star')}>
+          + Star
         </button>
-        <button className="btn" onClick={() => addShapeLayer('line')} aria-label="Add line">
-          ╱
+        <button className="btn" onClick={() => addShapeLayer('line')}>
+          + Line
         </button>
-        <button className="btn" onClick={() => addShapeLayer('arrow')} aria-label="Add arrow">
-          →
+        <button className="btn" onClick={() => addShapeLayer('arrow')}>
+          + Arrow
         </button>
       </div>
       <input
@@ -102,7 +108,7 @@ export default function LayersPanel(): JSX.Element {
                       mutateLayer(layer.id, (l) => ({ ...l, visible: !l.visible }));
                     }}
                   >
-                    {layer.visible ? '👁' : '⃰'}
+                    {layer.visible ? 'Eye' : 'Off'}
                   </button>
                   <button
                     className={'icon-btn' + (layer.locked ? ' active' : '')}
@@ -112,7 +118,7 @@ export default function LayersPanel(): JSX.Element {
                       mutateLayer(layer.id, (l) => ({ ...l, locked: !l.locked }));
                     }}
                   >
-                    {layer.locked ? '🔒' : '🔓'}
+                    {layer.locked ? 'Lock' : 'Unl'}
                   </button>
                   <button
                     className="icon-btn"
@@ -122,7 +128,7 @@ export default function LayersPanel(): JSX.Element {
                       moveLayer(layer.id, 'up');
                     }}
                   >
-                    ↑
+                    Up
                   </button>
                   <button
                     className="icon-btn"
@@ -132,7 +138,7 @@ export default function LayersPanel(): JSX.Element {
                       moveLayer(layer.id, 'down');
                     }}
                   >
-                    ↓
+                    Dn
                   </button>
                   <button
                     className="icon-btn"
@@ -142,7 +148,7 @@ export default function LayersPanel(): JSX.Element {
                       duplicateLayer(layer.id);
                     }}
                   >
-                    ⧉
+                    Dup
                   </button>
                   <button
                     className="icon-btn"
@@ -152,7 +158,7 @@ export default function LayersPanel(): JSX.Element {
                       deleteLayer(layer.id);
                     }}
                   >
-                    ✕
+                    Del
                   </button>
                 </span>
               </div>
