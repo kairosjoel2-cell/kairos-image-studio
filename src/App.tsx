@@ -2,7 +2,7 @@
  * App shell: header, panels, canvas stage, status bar, modals, and global
  * keyboard shortcuts.
  */
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { EditorProvider, useEditor } from './state/editorStore';
 import CanvasStage from './components/CanvasStage';
 import LayersPanel from './components/LayersPanel';
@@ -78,7 +78,11 @@ function EditorShell(): JSX.Element {
   }, [undo, redo, deleteLayer, duplicateLayer, saveNow, setSelection, selection]);
 
   const selectionLabel =
-    selection.length === 0 ? 'No selection' : selection.length === 1 ? '1 layer selected' : `${selection.length} layers selected`;
+    selection.length === 0
+      ? 'No selection'
+      : selection.length === 1
+        ? '1 layer selected'
+        : selection.length + ' layers selected';
 
   return (
     <div className="app-root">
@@ -97,13 +101,13 @@ function EditorShell(): JSX.Element {
         </button>
         <span className="spacer" />
         <button className="btn" onClick={undo} disabled={!canUndo} aria-label="Undo">
-          ↶ Undo
+          Undo
         </button>
         <button className="btn" onClick={redo} disabled={!canRedo} aria-label="Redo">
-          ↷ Redo
+          Redo
         </button>
         <button className="btn btn-primary" onClick={() => setModal('export')}>
-          ⬇ Export
+          Export
         </button>
       </header>
 
@@ -124,13 +128,16 @@ function EditorShell(): JSX.Element {
       </div>
 
       <footer className="status-bar">
-        <span className={'dot' + (online ? '' : ' offline')} title={online ? 'Online' : 'Offline — everything still works'} />
+        <span
+          className={'dot' + (online ? '' : ' offline')}
+          title={online ? 'Online' : 'Offline — everything still works'}
+        />
         <span>
-          {doc.width} × {doc.height} px
+          {doc.width} x {doc.height} px
         </span>
         <span>{doc.layers.length} layers</span>
         <span>{selectionLabel}</span>
-        <span className="spacer" style={{ flex: 1 }} />
+        <span style={{ flex: 1 }} />
         <span>{dirty ? 'Unsaved changes…' : 'Saved'}</span>
         <span>{online ? 'Online' : 'Offline mode'}</span>
       </footer>
