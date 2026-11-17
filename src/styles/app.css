@@ -1,0 +1,583 @@
+/**
+ * Styles for the KAIROS Image Studio editor. Dark professional theme with
+ * red accents, responsive down to mobile.
+ */
+
+/* ------------------------------ layout --------------------------------- */
+
+.app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--k-border);
+  background: var(--k-bg-2);
+  flex-wrap: wrap;
+}
+
+.app-header .brand {
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  font-size: 13px;
+  color: var(--k-text);
+  white-space: nowrap;
+}
+
+.app-header .brand span {
+  color: var(--k-red);
+}
+
+.app-header .spacer {
+  flex: 1;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.canvas-area {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(229, 72, 77, 0.05), transparent 50%),
+    var(--k-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.canvas-stack {
+  position: relative;
+  box-shadow: var(--k-shadow);
+  border-radius: 4px;
+  background: #ffffff;
+  touch-action: none;
+}
+
+.canvas-stack canvas {
+  display: block;
+}
+
+/* ------------------------------ panels --------------------------------- */
+
+.panel {
+  background: var(--k-panel);
+  border-right: 1px solid var(--k-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-left {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--k-border);
+}
+
+.panel-right {
+  width: 300px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--k-border);
+  border-right: none;
+}
+
+.panel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--k-border);
+  flex-shrink: 0;
+}
+
+.panel-tabs button {
+  flex: 1;
+  padding: 10px 4px;
+  background: none;
+  border: none;
+  color: var(--k-text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.panel-tabs button.active {
+  color: var(--k-text);
+  border-bottom-color: var(--k-red);
+}
+
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  min-height: 0;
+}
+
+.section-title {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--k-text-faint);
+  margin: 14px 0 6px;
+}
+
+.section-title:first-child {
+  margin-top: 0;
+}
+
+/* ------------------------------ controls -------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--k-radius-sm);
+  border: 1px solid var(--k-border-2);
+  background: var(--k-panel-2);
+  color: var(--k-text);
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover {
+  background: #26262b;
+  border-color: var(--k-border-2);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--k-red);
+  border-color: var(--k-red);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: var(--k-red-hover);
+  border-color: var(--k-red-hover);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--k-text-dim);
+}
+
+.btn-ghost:hover {
+  background: var(--k-panel-2);
+  color: var(--k-text);
+}
+
+.btn-danger {
+  color: var(--k-red);
+  border-color: var(--k-red-deep);
+  background: transparent;
+}
+
+.btn-danger:hover {
+  background: var(--k-red-dim);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.field label {
+  font-size: 11px;
+  color: var(--k-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.field input[type='text'],
+.field input[type='number'],
+.field select,
+.field textarea {
+  background: var(--k-bg-2);
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-radius-sm);
+  padding: 7px 9px;
+  color: var(--k-text);
+  min-width: 0;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--k-red);
+  outline: none;
+}
+
+.field-row {
+  display: flex;
+  gap: 8px;
+}
+
+.field-row .field {
+  flex: 1;
+}
+
+input[type='range'] {
+  width: 100%;
+  accent-color: var(--k-red);
+  background: transparent;
+}
+
+input[type='color'] {
+  width: 100%;
+  height: 34px;
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-radius-sm);
+  background: var(--k-bg-2);
+  cursor: pointer;
+  padding: 2px;
+}
+
+/* ------------------------------ layer list ------------------------------ */
+
+.layer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.layer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-radius-sm);
+  background: var(--k-panel-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.layer-item:hover {
+  border-color: var(--k-border-2);
+}
+
+.layer-item.selected {
+  border-color: var(--k-red);
+  background: var(--k-red-dim);
+}
+
+.layer-item .layer-name {
+  flex: 1;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layer-item .layer-icon {
+  width: 18px;
+  text-align: center;
+  opacity: 0.9;
+}
+
+.layer-item .layer-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--k-text-dim);
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.icon-btn:hover {
+  color: var(--k-text);
+  background: var(--k-panel);
+}
+
+.icon-btn.active {
+  color: var(--k-red);
+}
+
+/* ------------------------------ modals ---------------------------------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.modal {
+  background: var(--k-panel);
+  border: 1px solid var(--k-border-2);
+  border-radius: var(--k-radius);
+  box-shadow: var(--k-shadow);
+  width: min(520px, 96vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.modal h2 {
+  font-size: 15px;
+  margin-bottom: 14px;
+  letter-spacing: 0.04em;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.template-card {
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-radius-sm);
+  background: var(--k-panel-2);
+  padding: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.template-card:hover {
+  border-color: var(--k-red);
+}
+
+.template-card .tpl-name {
+  font-size: 12px;
+  color: var(--k-text);
+  margin-bottom: 2px;
+}
+
+.template-card .tpl-size {
+  font-size: 10px;
+  color: var(--k-text-faint);
+  font-family: var(--k-mono);
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.project-card {
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-radius-sm);
+  background: var(--k-panel-2);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.project-card:hover {
+  border-color: var(--k-red);
+}
+
+.project-card .thumb {
+  aspect-ratio: 4 / 3;
+  background: var(--k-bg-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--k-text-faint);
+  font-size: 10px;
+}
+
+.project-card .thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.project-card .meta {
+  padding: 8px 10px;
+}
+
+.project-card .meta .name {
+  font-size: 12px;
+  color: var(--k-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-card .meta .date {
+  font-size: 10px;
+  color: var(--k-text-faint);
+}
+
+/* ------------------------------ status bar ------------------------------ */
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 5px 12px;
+  border-top: 1px solid var(--k-border);
+  background: var(--k-bg-2);
+  font-size: 11px;
+  color: var(--k-text-dim);
+  flex-wrap: wrap;
+}
+
+.status-bar .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--k-ok);
+}
+
+.status-bar .dot.offline {
+  background: var(--k-warn);
+}
+
+/* ------------------------------ toast ----------------------------------- */
+
+.toast {
+  position: fixed;
+  bottom: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--k-panel-2);
+  color: var(--k-text);
+  border: 1px solid var(--k-border-2);
+  border-radius: var(--k-radius);
+  padding: 10px 18px;
+  font-size: 12px;
+  box-shadow: var(--k-shadow);
+  z-index: 200;
+  animation: toast-in 0.2s ease;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ------------------------------ toolbar --------------------------------- */
+
+.zoom-controls {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  gap: 4px;
+  background: var(--k-panel-2);
+  border: 1px solid var(--k-border-2);
+  border-radius: var(--k-radius);
+  padding: 4px;
+  z-index: 10;
+}
+
+/* ------------------------------ responsive ------------------------------ */
+
+@media (max-width: 1024px) {
+  .panel-left { width: 220px; }
+  .panel-right { width: 260px; }
+}
+
+@media (max-width: 768px) {
+  .app-body {
+    flex-direction: column;
+  }
+
+  .panel-left,
+  .panel-right {
+    width: 100%;
+    border: none;
+    border-top: 1px solid var(--k-border);
+  }
+
+  .panel-left {
+    order: 2;
+    max-height: 38vh;
+  }
+
+  .panel-right {
+    order: 1;
+    max-height: 34vh;
+    border-top: 1px solid var(--k-border);
+  }
+
+  .canvas-area {
+    order: 0;
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .app-header {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .app-header .btn {
+    padding: 6px 9px;
+    font-size: 11px;
+  }
+
+  .zoom-controls {
+    right: 8px;
+    bottom: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header .brand {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+  }
+
+  .panel-left {
+    max-height: 34vh;
+  }
+
+  .panel-right {
+    max-height: 30vh;
+  }
+}
