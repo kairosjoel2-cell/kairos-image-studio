@@ -1,39 +1,49 @@
-# KAIROS Image Studio
+# KAIROSWEB — Flyer Studio
 
-Upload an existing flyer and turn it into an editable layered design. KAIROS preserves the original flyer as a base layer, uses Gemini vision to identify text blocks, and rebuilds detected text as editable layers.
+Upload any existing flyer and turn it into a **fully editable layered design**.
+KAIROSWEB keeps the original layout pixel-perfect, extracts every text block
+with AI vision, and rebuilds them as editable text you can restyle, recolor,
+retype, and reposition — then export high-quality **PNG, JPG, WebP, or PDF**.
 
-Built with React, TypeScript, Vite, and Canvas 2D. Projects and assets are stored locally in the browser (IndexedDB). The editor remains usable offline; AI analysis requires the hosted server endpoint.
+Built with React, TypeScript (strict), Vite, and Canvas 2D. No backend, no
+accounts: projects and image assets live in your browser (IndexedDB), and the
+app works offline as an installable PWA.
+
+## How flyer conversion works
+
+1. **Import** — upload a PNG/JPG/WebP or PDF. PDFs are rasterized at high
+   resolution via pdf.js (loaded on demand from a versioned CDN).
+2. **Analyze** — the flyer is sent to an OpenAI-compatible vision model you
+   configure, which returns every text block with exact content, normalized
+   bounding box, font size estimate, weight/style, alignment, and color.
+   No key configured? The app still imports in offline mode (base image +
+   manual editing).
+3. **Rebuild** — the original flyer becomes a locked base layer (layout
+   preserved exactly). For each text block, a color-sampled background patch
+   (feathered edges) covers the baked-in text, and a matching editable text
+   layer is placed on top with the sampled color, size, and alignment.
+4. **Edit everything** — retype text, change fonts/weights/colors, drag,
+   resize, rotate, reorder, restyle backgrounds, add shapes and images.
+   Full undo/redo, autosave, and keyboard shortcuts.
+5. **Export** — PNG (lossless), JPG (quality slider), WebP, or print-ready
+   PDF at 0.25×–4× scale through the same renderer as the canvas, so export
+   matches preview exactly.
 
 ## Getting started
 
 ```bash
 npm install
-npm run dev
+npm run dev        # http://localhost:5173
 ```
 
-## Gemini AI setup (Vercel)
+Configure the AI (optional but recommended): open **AI ⚙** in the header,
+set your API base URL (OpenAI, Groq, OpenRouter, DeepSeek, or any
+OpenAI-compatible endpoint), paste your key, and choose a vision model
+(e.g. `gpt-4o-mini`). The key is stored **only** in your browser's
+localStorage and is sent directly to the endpoint you choose — never committed,
+never proxied anywhere else.
 
-1. Create or use a Gemini API project managed by an eligible account owner.
-2. Add the secret `GEMINI_API_KEY` to the Vercel project's Environment Variables (Preview and Production as appropriate).
-3. Optionally set `GEMINI_MODEL`; the default is `gemini-3.5-flash-lite`.
-4. Redeploy the project after changing environment variables.
-
-The browser calls `/api/ai/analyze`; only the Vercel function contacts Google. The API key is never sent to the browser, committed to Git, or stored in localStorage. The endpoint accepts image data URLs only, limits payload size and output tokens, and has a basic per-instance request throttle.
-
-## Privacy
-
-Gemini's free tier may use submitted prompts and responses to improve Google products. Do not upload private, confidential, or sensitive images when using the free tier. Check Google's current terms and pricing before enabling paid usage. API quotas and rate limits are shared by all visitors using this project's key.
-
-## Flyer conversion
-
-1. Import PNG/JPG/WEBP or a PDF (first page only).
-2. Gemini extracts visible text, approximate position, font size, style, alignment, and color.
-3. KAIROS creates editable text layers over the preserved base image.
-4. Adjust any imperfect text or positions manually, then export PNG, JPG, WebP, or PDF.
-
-Text recognition is model-dependent. Highly stylized, low-resolution, or obstructed text may need manual correction.
-
-## Verification
+Verify before publishing changes:
 
 ```bash
 npm run typecheck
@@ -42,9 +52,61 @@ npm run build
 node scripts/verify.mjs
 ```
 
-## Security
+## Security notes
 
-- Never commit provider API keys.
-- Never paste API keys into chat or screenshots.
-- Keep `GEMINI_API_KEY` server-side in Vercel.
-- Do not expose this endpoint to untrusted traffic without appropriate rate limits and usage monitoring.
+- **Never commit API keys.** There is no key in this repository by design.
+- Keys pasted into chat histories or screenshots should be rotated.
+- The vision call goes browser → your chosen endpoint directly. If your
+  endpoint does not allow browser CORS, use an endpoint that does (OpenAI,
+  Groq, and OpenRouter all do).
+- The bundled service worker caches only this app's own files.
+
+## Architecture
+
+```
+src/
+  App.tsx                    shell: header, panels, shortcuts, status bar
+  branding.ts                KAIROSWEB identity + flyer presets
+  types.ts                   document model (layers, adjustments, blend modes)
+  i18n.ts                    EN/DE strings
+  state/editorStore.tsx      state, selection, history, persistence, AI flow
+  lib/
+    aiClient.ts              OpenAI-compatible vision client (runtime key)
+    aiExtract.ts             flyer → text blocks (AI + offline fallback)
+    flyerImport.ts           image/PDF ingestion
+    aiDocument.ts            flyer → editable layered document
+    colorSample.ts           per-block text/background sampling + patches
+    history.ts               bounded undo/redo with coalescing
+    db.ts                    IndexedDB (projects + assets)
+    document.ts              document factory + canvas templates
+    filters.ts               canvas filter strings + presets
+    renderer.ts              Canvas 2D renderer (editor + export share it)
+    export.ts                PNG/JPG/WebP/PDF export pipeline
+  vendor/
+    pdfjs.ts                 on-demand pdf.js loader (CDN, typed)
+    jspdf.ts                 on-demand jsPDF loader (CDN, typed)
+  components/
+    CanvasStage.tsx          interactive canvas (move/resize/rotate)
+    LayersPanel.tsx          layer list + add-layer actions
+    PropertiesPanel.tsx      transform, filters, crop, text, shape, background
+    Modals.tsx               import wizard, new, projects, export, AI settings
+  pwa/register.ts            service worker registration
+  styles/app.css             design system + responsive layout
+public/
+  sw.js                      offline cache
+  manifest.webmanifest       PWA manifest
+```
+
+## Notes and limits
+
+- Text recognition quality depends on the vision model; blurry or heavily
+  stylized flyers may need manual touch-up (that is what the patch + text
+  layers are for — every block is independently editable).
+- Only the first page of multi-page PDFs is imported.
+- Fonts use system font stacks to keep the app fully offline and private.
+- The AI request can be blocked by browser extensions or strict networks;
+  errors surface in the import wizard with an offline-mode fallback.
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
