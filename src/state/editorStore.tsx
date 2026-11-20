@@ -28,7 +28,7 @@ import {
   AiClient,
   loadSettings,
   saveSettings,
-  fileToVisionDataUrl,
+  dataUrlToVisionDataUrl,
   type AiSettings,
 } from '../lib/aiClient';
 import { importFlyer } from '../lib/flyerImport';
@@ -245,7 +245,7 @@ export function EditorProvider({
 
       showToast('Analyzing design…');
       const client = new AiClient(aiSettingsRef.current);
-      const visionUrl = await fileToVisionDataUrl(file, 1600);
+      const visionUrl = await dataUrlToVisionDataUrl(imported.dataUrl, 1600);
       const extraction = await extractFlyerStructure(
         client,
         visionUrl,
