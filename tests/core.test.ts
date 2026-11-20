@@ -56,11 +56,11 @@ describe('filters', () => {
 describe('export helpers', () => {
   it('sanitizes filenames', () => {
     expect(sanitizeFilename('my: cool/design?')).toBe('my-cool-design');
-    expect(sanitizeFilename('   ')).toBe('kairos-export');
+    expect(sanitizeFilename('   ')).toBe('kairosweb-export');
   });
 
   it('supports png jpeg and webp', () => {
-    expect(EXPORT_FORMATS.map((f) => f.id)).toEqual(['png', 'jpeg', 'webp']);
+    expect(EXPORT_FORMATS.map((f) => f.id)).toEqual(['png', 'jpeg', 'webp', 'pdf']);
   });
 });
 
