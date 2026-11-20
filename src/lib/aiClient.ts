@@ -1,64 +1,48 @@
 /**
- * OpenAI-compatible vision API client for KAIROSWEB.
- *
- * The API key is supplied at runtime (browser localStorage via the Settings
- * panel) and is never embedded in source or committed to the repository.
- * Works with OpenAI, Groq, OpenRouter, DeepSeek, or any compatible endpoint.
+ * Secure Gemini vision client for KAIROS Image Studio.
+ * Browser requests go to the same-origin Vercel function; provider credentials
+ * are never stored in localStorage or sent to the browser.
  */
 
 const SETTINGS_KEY = 'kairosweb.settings.v1';
 
 export interface AiSettings {
+  /** Kept for compatibility with older saved editor state. */
   baseUrl: string;
+  /** Always empty: provider credentials are server-side only. */
   apiKey: string;
   model: string;
 }
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
-  baseUrl: 'https://api.openai.com/v1',
+  baseUrl: '/api/ai/analyze',
   apiKey: '',
-  model: 'gpt-4o-mini',
+  model: 'gemini-3.5-flash-lite',
 };
 
 export function loadSettings(): AiSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return { ...DEFAULT_AI_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<AiSettings>;
-    return {
-      baseUrl: parsed.baseUrl || DEFAULT_AI_SETTINGS.baseUrl,
-      apiKey: parsed.apiKey || '',
-      model: parsed.model || DEFAULT_AI_SETTINGS.model,
-    };
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<AiSettings>;
+      // Remove any legacy browser-stored provider key immediately.
+      if (parsed.apiKey) {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(DEFAULT_AI_SETTINGS));
+      }
+    }
   } catch {
-    return { ...DEFAULT_AI_SETTINGS };
+    // Ignore corrupt legacy settings and use the secure server configuration.
   }
+  return { ...DEFAULT_AI_SETTINGS };
 }
 
-export function saveSettings(settings: AiSettings): void {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+export function saveSettings(_settings: AiSettings): void {
+  // Never persist credentials or user-controlled provider endpoints in the browser.
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(DEFAULT_AI_SETTINGS));
 }
 
 export function clearSettings(): void {
   localStorage.removeItem(SETTINGS_KEY);
-}
-
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content:
-    | string
-    | Array<
-        | { type: 'text'; text: string }
-        | { type: 'image_url'; image_url: { url: string; detail?: 'high' | 'low' | 'auto' } }
-      >;
-}
-
-interface ChatChoice {
-  message?: { content?: string | null };
-}
-
-interface ChatResponse {
-  choices?: ChatChoice[];
 }
 
 export class AiClientError extends Error {
@@ -71,82 +55,50 @@ export class AiClientError extends Error {
 }
 
 export class AiClient {
-  private readonly settings: AiSettings;
+  constructor(_settings: AiSettings) {}
 
-  constructor(settings: AiSettings) {
-    this.settings = settings;
-  }
-
+  // The browser always attempts the same-origin server endpoint. The endpoint
+  // reports whether its server-side Gemini credential has been configured.
   get configured(): boolean {
-    return this.settings.apiKey.trim().length > 0;
+    return true;
   }
 
-  /**
-   * POST /chat/completions with vision content.
-   * Returns the assistant text (JSON expected by callers).
-   */
   async visionJson(
     systemPrompt: string,
     dataUrl: string,
     userPrompt: string,
     maxTokens = 4096,
   ): Promise<string> {
-    if (!this.configured) {
-      throw new AiClientError('API key is not configured. Open Settings to add it.', null);
-    }
-
-    const url = joinUrl(this.settings.baseUrl, '/chat/completions');
     let response: Response;
     try {
-      response = await fetch(url, {
+      response = await fetch('/api/ai/analyze', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + this.settings.apiKey.trim(),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: this.settings.model,
-          temperature: 0,
-          max_tokens: maxTokens,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: userPrompt },
-                { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } },
-              ],
-            },
-          ] as ChatMessage[],
+          systemPrompt,
+          userPrompt,
+          dataUrl,
+          maxTokens: Math.min(Math.max(Math.round(maxTokens), 256), 4096),
         }),
       });
     } catch {
-      throw new AiClientError(
-        'Could not reach the AI endpoint. Check the base URL and your connection (browser CORS must allow the call).',
-        null,
-      );
+      throw new AiClientError('Could not reach KAIROS AI. Check your connection and try again.', null);
     }
 
-    if (response.status === 401) {
-      throw new AiClientError('API key rejected (401). Check the key in Settings.', 401);
-    }
-    if (response.status === 429) {
-      throw new AiClientError('Rate limited (429). Wait a moment and try again.', 429);
-    }
+    const payload = (await response.json().catch(() => ({}))) as {
+      text?: string;
+      error?: string;
+    };
+
     if (!response.ok) {
-      throw new AiClientError('AI request failed with status ' + response.status + '.', response.status);
+      const message = payload.error || 'KAIROS AI request failed.';
+      throw new AiClientError(message, response.status);
     }
-
-    const data = (await response.json()) as ChatResponse;
-    const text = data.choices?.[0]?.message?.content ?? '';
-    if (!text) throw new AiClientError('AI returned an empty response.', response.status);
-    return text;
+    if (!payload.text) {
+      throw new AiClientError('Gemini returned an empty response.', response.status);
+    }
+    return payload.text;
   }
-}
-
-function joinUrl(base: string, path: string): string {
-  const trimmed = base.trim().replace(/\/+$/, '');
-  return trimmed + path;
 }
 
 /** Parse a JSON object out of a model response, tolerating code fences. */
@@ -159,28 +111,10 @@ export function parseJsonLoose(text: string): Record<string, unknown> {
     try {
       return JSON.parse(candidate.slice(start, end + 1)) as Record<string, unknown>;
     } catch {
-      // fall through to direct parse
+      // Fall through to direct parse.
     }
   }
   return JSON.parse(candidate) as Record<string, unknown>;
-}
-
-/** Downscale an image file to a JPEG data URL suitable for vision requests. */
-export async function fileToVisionDataUrl(file: Blob, maxEdge = 1600): Promise<string> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await loadImageElement(url);
-    const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas unavailable');
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.92);
-  } finally {
-    URL.revokeObjectURL(url);
-  }
 }
 
 /** Convert an already-rasterized import (including the first PDF page) into a vision-ready JPEG. */
