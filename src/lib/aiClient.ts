@@ -183,6 +183,19 @@ export async function fileToVisionDataUrl(file: Blob, maxEdge = 1600): Promise<s
   }
 }
 
+/** Convert an already-rasterized import (including the first PDF page) into a vision-ready JPEG. */
+export async function dataUrlToVisionDataUrl(dataUrl: string, maxEdge = 1600): Promise<string> {
+  const img = await loadImageElement(dataUrl);
+  const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas unavailable');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.92);
+}
+
 function loadImageElement(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
