@@ -160,7 +160,7 @@ export default function CanvasStage(): JSX.Element {
     (px: number, py: number): { kind: 'rotate' } | { kind: 'resize'; handle: HandleId } | null => {
       if (selection.length !== 1) return null;
       const layer = doc.layers.find((l) => l.id === selection[0]);
-      if (!layer) return null;
+      if (!layer || layer.locked) return null;
       const corners = layerCorners(layer);
       const midTop = {
         x: (corners[0].x + corners[1].x) / 2,
